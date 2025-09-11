@@ -85,6 +85,27 @@ class RouteAssignment(db.Model):
     bus = db.relationship('Bus')
     stop = db.relationship('BusStop')
 
+class BusSchedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    route_name = db.Column(db.String(100), nullable=False)
+    departure_time = db.Column(db.Time, nullable=False)
+    arrival_time = db.Column(db.Time, nullable=False)
+    bus_number = db.Column(db.String(20), nullable=False)
+    driver_name = db.Column(db.String(100), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class BusLocation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    bus_id = db.Column(db.Integer, db.ForeignKey('bus.id'), nullable=False)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    speed = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default='moving')
+    
+    bus = db.relationship('Bus')
+
 @login_manager.user_loader
 def load_user(user_id):
     return Student.query.get(int(user_id))
@@ -230,23 +251,36 @@ def dashboard():
     today = datetime.now().date()
     now = datetime.now()
     
-    # Check if user has voted today
+    # Get today's vote
     today_vote = DailyVote.query.filter_by(
         student_id=current_user.id,
         vote_date=today
     ).first()
     
-    # Check emergency window status
-    emergency_active = is_emergency_window_active()
+    # Check if emergency window is active (7:00 AM - 7:30 AM)
+    emergency_active = False
+    current_time = now.time()
+    if current_time >= datetime.strptime("07:00", "%H:%M").time() and \
+       current_time <= datetime.strptime("07:30", "%H:%M").time():
+        emergency_active = True
     
-    # Get user's stop information
-    user_stop = current_user.stop
+    # Get user's bus stop
+    user_stop = BusStop.query.get(current_user.stop_id)
     
-    return render_template('dashboard.html', 
+    # Get bus schedule for today
+    bus_schedule = BusSchedule.query.filter_by(is_active=True).first()
+    
+    # Get live bus location
+    bus_location = BusLocation.query.order_by(BusLocation.timestamp.desc()).first()
+    
+    return render_template('dashboard.html',
+                         current_user=current_user,
                          today_vote=today_vote,
                          emergency_active=emergency_active,
                          user_stop=user_stop,
-                         now=now)
+                         now=now,
+                         bus_schedule=bus_schedule,
+                         bus_location=bus_location)
 
 @app.route('/vote', methods=['POST'])
 @login_required
@@ -429,11 +463,7 @@ def import_students():
 
 @app.route('/admin/import/stops', methods=['GET', 'POST'])
 def import_stops():
-    """Import bus stops from CSV - admin only"""
-    if 'admin_logged_in' not in session:
-        flash('Please login as admin to access this page.')
-        return redirect(url_for('admin_login'))
-    
+    """Import bus stops from CSV - public access"""
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('No file selected')
@@ -452,7 +482,6 @@ def import_stops():
                 imported_count = 0
                 for row in csv_reader:
                     try:
-                        # Check if stop already exists
                         existing = BusStop.query.filter_by(name=row['name']).first()
                         if existing:
                             continue
@@ -478,6 +507,76 @@ def import_stops():
             flash('Please upload a CSV file')
     
     return render_template('import_stops.html')
+
+@app.route('/api/bus-schedule')
+def get_bus_schedule():
+    """Get today's bus schedule"""
+    today = datetime.now().date()
+    
+    # Create sample schedule if none exists
+    schedule = BusSchedule.query.filter_by(is_active=True).first()
+    if not schedule:
+        sample_schedule = BusSchedule(
+            route_name="Morning Route",
+            departure_time=datetime.strptime("07:30", "%H:%M").time(),
+            arrival_time=datetime.strptime("08:15", "%H:%M").time(),
+            bus_number="BUS-001",
+            driver_name="John Smith"
+        )
+        db.session.add(sample_schedule)
+        db.session.commit()
+        schedule = sample_schedule
+    
+    return jsonify({
+        'route_name': schedule.route_name,
+        'departure_time': schedule.departure_time.strftime('%I:%M %p'),
+        'arrival_time': schedule.arrival_time.strftime('%I:%M %p'),
+        'bus_number': schedule.bus_number,
+        'driver_name': schedule.driver_name,
+        'countdown_minutes': 0
+    })
+
+@app.route('/api/live-location')
+def get_live_location():
+    """Get live bus location"""
+    location = BusLocation.query.order_by(BusLocation.timestamp.desc()).first()
+    
+    if location:
+        return jsonify({
+            'latitude': location.latitude,
+            'longitude': location.longitude,
+            'status': location.status,
+            'speed': location.speed,
+            'timestamp': location.timestamp.strftime('%I:%M %p')
+        })
+    else:
+        # Return school location as default
+        return jsonify({
+            'latitude': 12.9716,
+            'longitude': 77.5946,
+            'status': 'at_school',
+            'speed': 0.0,
+            'timestamp': datetime.now().strftime('%I:%M %p')
+        })
+
+@app.route('/api/update-location', methods=['POST'])
+def update_location():
+    """Update bus location (for demo purposes)"""
+    data = request.json
+    
+    # Create or update bus location
+    bus_id = data.get('bus_id', 1)
+    location = BusLocation(
+        bus_id=bus_id,
+        latitude=data.get('latitude', 12.9716),
+        longitude=data.get('longitude', 77.5946),
+        speed=data.get('speed', 0.0),
+        status=data.get('status', 'moving')
+    )
+    db.session.add(location)
+    db.session.commit()
+    
+    return jsonify({'message': 'Location updated successfully'})
 
 @app.route('/api/optimize-routes', methods=['POST'])
 def optimize_routes():

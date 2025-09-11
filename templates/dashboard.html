@@ -72,17 +72,54 @@
 
     <!-- Today's Status -->
     <div class="card">
-        <h3><i class="fas fa-calendar-day"></i> Today's Status</h3>
+        <h3><i class="fas fa-clock"></i> Bus Schedule & Live Tracking</h3>
         <div style="text-align: center;">
+            {% if bus_schedule %}
+                <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                    <h4><i class="fas fa-bus"></i> {{ bus_schedule.route_name }}</h4>
+                    <div style="display: flex; justify-content: space-around; margin: 10px 0;">
+                        <div>
+                            <strong>Departure:</strong><br>
+                            <span style="font-size: 1.2em; color: #007bff;">{{ bus_schedule.departure_time.strftime('%I:%M %p') }}</span>
+                        </div>
+                        <div>
+                            <strong>Arrival:</strong><br>
+                            <span style="font-size: 1.2em; color: #28a745;">{{ bus_schedule.arrival_time.strftime('%I:%M %p') }}</span>
+                        </div>
+                    </div>
+                    <div style="margin: 10px 0;">
+                        <strong>Bus Number:</strong> {{ bus_schedule.bus_number }}<br>
+                        <strong>Driver:</strong> {{ bus_schedule.driver_name }}
+                    </div>
+                    {% if bus_location %}
+                        <div style="margin: 15px 0; padding: 10px; background: #d4edda; border-radius: 5px;">
+                            <strong><i class="fas fa-map-marker-alt"></i> Live Location:</strong><br>
+                            <span id="live-location">{{ bus_location.status.title() }}</span><br>
+                            <small>Updated: {{ bus_location.timestamp.strftime('%I:%M %p') }}</small>
+                        </div>
+                    {% else %}
+                        <div style="margin: 10px 0; color: #6c757d;">
+                            <i class="fas fa-info-circle"></i> Bus location will appear when tracking starts
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div style="margin: 15px 0; color: #6c757d;">
+                    <i class="fas fa-info-circle"></i> Bus schedule will be available after route optimization
+                </div>
+            {% endif %}
+            
             <div style="margin: 15px 0;">
-                <strong>Date:</strong> {{ now.strftime('%B %d, %Y') }}
-            </div>
-            <div style="margin: 15px 0;">
-                <strong>Current Time:</strong> {{ now.strftime('%I:%M %p') }}
-            </div>
-            <div style="margin: 15px 0;">
+                <strong>Date:</strong> {{ now.strftime('%B %d, %Y') }}<br>
+                <strong>Current Time:</strong> {{ now.strftime('%I:%M %p') }}<br>
                 <strong>Your ID:</strong> {{ current_user.student_id }}
             </div>
+            
+            {% if bus_schedule and bus_location %}
+                <button onclick="startLiveTracking()" class="btn btn-success">
+                    <i class="fas fa-satellite-dish"></i> Start Live Tracking
+                </button>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -145,8 +182,42 @@ function requestEmergency() {
     }
 }
 
+function startLiveTracking() {
+    fetch('{{ url_for("get_live_location") }}')
+        .then(response => response.json())
+        .then(data => {
+            const locationDiv = document.getElementById('live-location');
+            locationDiv.innerHTML = `
+                <i class="fas fa-bus"></i> ${data.status.title()}<br>
+                <small>Speed: ${data.speed} km/h</small><br>
+                <small>Last updated: ${data.timestamp}</small>
+            `;
+            
+            // Update every 30 seconds
+            setInterval(() => {
+                fetch('{{ url_for("get_live_location") }}')
+                    .then(response => response.json())
+                    .then(update => {
+                        locationDiv.innerHTML = `
+                            <i class="fas fa-bus"></i> ${update.status.title()}<br>
+                            <small>Speed: ${update.speed} km/h</small><br>
+                            <small>Last updated: ${update.timestamp}</small>
+                        `;
+                    });
+            }, 30000);
+        });
+}
+
 function checkBusStatus() {
-    alert('Bus status checking feature coming soon!');
+    fetch('{{ url_for("get_bus_schedule") }}')
+        .then(response => response.json())
+        .then(data => {
+            const now = new Date();
+            const departure = new Date(now.toDateString() + ' ' + data.departure_time);
+            const countdown = Math.round((departure - now) / (1000 * 60));
+            
+            alert(`Bus ${data.bus_number} departs at ${data.departure_time}\nCountdown: ${countdown} minutes`);
+        });
 }
 
 function getDirections() {
@@ -158,5 +229,13 @@ function getDirections() {
     var url = 'https://www.google.com/maps/dir/' + stopLat + ',' + stopLng + '/' + schoolLat + ',' + schoolLng;
     window.open(url, '_blank');
 }
+
+// Auto-start tracking when page loads
+window.addEventListener('load', function() {
+    var hasSchedule = {{ 'true' if bus_schedule else 'false' }};
+    if (hasSchedule) {
+        setTimeout(startLiveTracking, 2000);
+    }
+});
 </script>
 {% endblock %}
