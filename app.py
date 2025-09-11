@@ -592,8 +592,8 @@ def optimize_routes():
         DailyVote.needs_bus == True
     ).group_by(BusStop.id).all()
     
-    # School location (example coordinates)
-    school_location = {'latitude': 12.9716, 'longitude': 77.5946}  # Bangalore example
+    # Vignan Institute of Technology, Deshmuki, Hyderabad coordinates
+    school_location = {'latitude': 17.4065, 'longitude': 78.4772}
     
     routes = []
     available_buses = Bus.query.filter_by(is_active=True).all()

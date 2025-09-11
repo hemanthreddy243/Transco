@@ -77,19 +77,24 @@
             {% if bus_schedule %}
                 <div style="margin: 15px 0; padding: 15px; background: #f8f9fa; border-radius: 10px;">
                     <h4><i class="fas fa-bus"></i> {{ bus_schedule.route_name }}</h4>
+                    <div style="background: #e8f5e8; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                        <strong><i class="fas fa-graduation-cap"></i> Destination: Vignan Institute of Technology</strong><br>
+                        <small>Deshmuki, Hyderabad</small>
+                    </div>
                     <div style="display: flex; justify-content: space-around; margin: 10px 0;">
                         <div>
                             <strong>Departure:</strong><br>
                             <span style="font-size: 1.2em; color: #007bff;">{{ bus_schedule.departure_time.strftime('%I:%M %p') }}</span>
                         </div>
                         <div>
-                            <strong>Arrival:</strong><br>
+                            <strong>Arrival at Vignan:</strong><br>
                             <span style="font-size: 1.2em; color: #28a745;">{{ bus_schedule.arrival_time.strftime('%I:%M %p') }}</span>
                         </div>
                     </div>
                     <div style="margin: 10px 0;">
                         <strong>Bus Number:</strong> {{ bus_schedule.bus_number }}<br>
-                        <strong>Driver:</strong> {{ bus_schedule.driver_name }}
+                        <strong>Driver:</strong> {{ bus_schedule.driver_name }}<br>
+                        <strong>Route to Vignan:</strong> {{ bus_schedule.route_name }}
                     </div>
                     {% if bus_location %}
                         <div style="margin: 15px 0; padding: 10px; background: #d4edda; border-radius: 5px;">
@@ -223,8 +228,8 @@ function checkBusStatus() {
 function getDirections() {
     var stopLat = parseFloat("{{ user_stop.latitude }}");
     var stopLng = parseFloat("{{ user_stop.longitude }}");
-    var schoolLat = 12.9716;
-    var schoolLng = 77.5946;
+    var schoolLat = 17.4065;
+    var schoolLng = 78.4772;
     
     var url = 'https://www.google.com/maps/dir/' + stopLat + ',' + stopLng + '/' + schoolLat + ',' + schoolLng;
     window.open(url, '_blank');
