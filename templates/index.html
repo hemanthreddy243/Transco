@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <h2><i class="fas fa-home"></i> Welcome to Smart Transportation System</h2>
+    <p>Experience the future of school transportation with AI-powered route optimization, real-time tracking, and smart emergency response.</p>
+    
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3><i class="fas fa-user-graduate"></i> Student Portal</h3>
+            <p>Register and login to access personalized transportation services</p>
+            <div style="margin-top: 20px;">
+                <a href="{{ url_for('register') }}" class="btn btn-primary">
+                    <i class="fas fa-user-plus"></i> Register
+                </a>
+                <a href="{{ url_for('login') }}" class="btn btn-success">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3><i class="fas fa-cogs"></i> Admin Dashboard</h3>
+            <p>Manage routes, buses, and monitor real-time transportation data</p>
+            <a href="{{ url_for('admin_dashboard_secure') }}" class="btn btn-primary">
+                <i class="fas fa-chart-bar"></i> View Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2><i class="fas fa-lightbulb"></i> Key Features</h2>
+    <div class="dashboard-grid">
+        <div class="card">
+            <h4><i class="fas fa-route"></i> AI Route Optimization</h4>
+            <p>Dynamic route planning using Dijkstra's algorithm and real-time data</p>
+        </div>
+        <div class="card">
+            <h4><i class="fas fa-vote-yea"></i> Daily Voting</h4>
+            <p>Students vote daily for bus requirement to optimize resource allocation</p>
+        </div>
+        <div class="card">
+            <h4><i class="fas fa-exclamation-triangle"></i> Emergency Response</h4>
+            <p>30-minute emergency window with GPS-based bus dispatch</p>
+        </div>
+        <div class="card">
+            <h4><i class="fas fa-leaf"></i> Sustainability</h4>
+            <p>Reduce carbon footprint through efficient routing and resource utilization</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Smart Transportation System{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <h2><i class="fas fa-chart-bar"></i> Admin Dashboard</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <i class="fas fa-home"></i> Back to Home
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="admin-stats">
+    <div class="stat-card">
+        <h3>{{ votes|length }}</h3>
+        <p>Today's Votes</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ emergency_requests|length }}</h3>
+        <p>Emergency Requests</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ stop_demands|length }}</h3>
+        <p>Active Stops</p>
+    </div>
+    <div class="stat-card">
+        <h3>{{ stop_demands.values()|map(attribute='count')|sum }}</h3>
+        <p>Students Needing Bus</p>
+    </div>
+</div>
+
+<!-- Route Optimization -->
+<div class="card">
+    <h3><i class="fas fa-route"></i> Route Optimization</h3>
+    <button onclick="optimizeRoutes()" class="btn btn-primary">
+        <i class="fas fa-magic"></i> Optimize Routes Now
+    </button>
+    <div id="optimization-result" style="margin-top: 20px;"></div>
+</div>
+
+<!-- Today's Votes -->
+<div class="card">
+    <h3><i class="fas fa-vote-yea"></i> Today's Votes</h3>
+    {% if votes %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Stop</th>
+                    <th>Vote</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vote, student, stop in votes %}
+                <tr>
+                    <td>{{ student.name }} ({{ student.student_id }})</td>
+                    <td>{{ stop.name }}</td>
+                    <td>
+                        {% if vote.needs_bus %}
+                            <span class="btn btn-success" style="padding: 5px 10px; font-size: 12px;">
+                                <i class="fas fa-bus"></i> YES
+                            </span>
+                        {% else %}
+                            <span class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;">
+                                <i class="fas fa-times"></i> NO
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>{{ vote.voted_at.strftime('%I:%M %p') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div style="text-align: center; color: #666;">
+            <i class="fas fa-info-circle"></i> No votes recorded today
+        </div>
+    {% endif %}
+</div>
+
+<!-- Stop Demands -->
+<div class="card">
+    <h3><i class="fas fa-map-marker-alt"></i> Bus Stop Demands</h3>
+    {% if stop_demands %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Stop</th>
+                    <th>Students</th>
+                    <th>Coordinates</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stop_id, data in stop_demands.items() %}
+                <tr>
+                    <td>
+                        <strong>{{ data.stop.name }}</strong><br>
+                        <small>{{ data.stop.address }}</small>
+                    </td>
+                    <td>
+                        <span class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;">
+                            {{ data.count }} students
+                        </span>
+                    </td>
+                    <td>
+                        {{ "%.4f"|format(data.stop.latitude) }}, {{ "%.4f"|format(data.stop.longitude) }}
+                    </td>
+                    <td>
+                        <button onclick="viewStopDetails({{ stop_id }})" class="btn btn-info" style="padding: 5px 10px; font-size: 12px;">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div style="text-align: center; color: #666;">
+            <i class="fas fa-info-circle"></i> No bus demands recorded today
+        </div>
+    {% endif %}
+</div>
+
+<!-- Emergency Requests -->
+<div class="card">
+    <h3><i class="fas fa-exclamation-triangle"></i> Emergency Requests</h3>
+    {% if emergency_requests %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Stop</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for request, student, stop in emergency_requests %}
+                <tr>
+                    <td>{{ student.name }} ({{ student.student_id }})</td>
+                    <td>{{ stop.name }}</td>
+                    <td>{{ request.request_time.strftime('%I:%M %p') }}</td>
+                    <td>
+                        {% if request.is_resolved %}
+                            <span class="btn btn-success" style="padding: 5px 10px; font-size: 12px;">
+                                <i class="fas fa-check"></i> Resolved
+                            </span>
+                        {% else %}
+                            <span class="btn btn-warning" style="padding: 5px 10px; font-size: 12px;">
+                                <i class="fas fa-clock"></i> Pending
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button onclick="assignBus({{ request.id }})" class="btn btn-primary" style="padding: 5px 10px; font-size: 12px;">
+                            <i class="fas fa-bus"></i> Assign Bus
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div style="text-align: center; color: #666;">
+            <i class="fas fa-info-circle"></i> No emergency requests in the last hour
+        </div>
+    {% endif %}
+</div>
+
+<!-- Quick Actions -->
+<div class="card">
+    <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <button onclick="refreshData()" class="btn btn-primary">
+            <i class="fas fa-sync"></i> Refresh Data
+        </button>
+        <button onclick="exportData()" class="btn btn-success">
+            <i class="fas fa-download"></i> Export Data
+        </button>
+        <button onclick="sendNotifications()" class="btn btn-info">
+            <i class="fas fa-bell"></i> Send Notifications
+        </button>
+        <button onclick="viewAnalytics()" class="btn btn-warning">
+            <i class="fas fa-chart-line"></i> View Analytics
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function optimizeRoutes() {
+    const button = event.target;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Optimizing...';
+    button.disabled = true;
+    
+    fetch('{{ url_for("optimize_routes") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const resultDiv = document.getElementById('optimization-result');
+        resultDiv.innerHTML = 
+            '<div class="alert alert-success">' +
+            '<i class="fas fa-check-circle"></i> ' + data.message + '<br>' +
+            '<strong>Routes optimized:</strong> ' + data.routes + '<br>' +
+            '<strong>Students served:</strong> ' + data.total_students_served +
+            '</div>';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('optimization-result').innerHTML = 
+            '<div class="alert alert-danger">Error optimizing routes</div>';
+    })
+    .finally(() => {
+        button.innerHTML = '<i class="fas fa-magic"></i> Optimize Routes Now';
+        button.disabled = false;
+    });
+}
+
+function assignBus(requestId) {
+    if (confirm('Assign bus to this emergency request?')) {
+        // Implementation for bus assignment
+        alert('Bus assignment feature coming soon!');
+    }
+}
+
+function viewStopDetails(stopId) {
+    alert('Stop details feature coming soon!');
+}
+
+function refreshData() {
+    location.reload();
+}
+
+function exportData() {
+    // Implementation for data export
+    alert('Data export feature coming soon!');
+}
+
+function sendNotifications() {
+    alert('Notification feature coming soon!');
+}
+
+function viewAnalytics() {
+    alert('Analytics feature coming soon!');
+}
+
+// Auto-refresh every 30 seconds
+setInterval(refreshData, 30000);
+</script>
+{% endblock %}

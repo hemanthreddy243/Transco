@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Smart Transportation System{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2><i class="fas fa-sign-in-alt"></i> Student Login</h2>
+    <p>Access your personalized transportation dashboard</p>
+    
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="form-group">
+            <label for="student_id">Student ID:</label>
+            <input type="text" id="student_id" name="student_id" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" class="form-control" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-sign-in-alt"></i> Login
+        </button>
+    </form>
+    
+    <div style="margin-top: 20px; text-align: center;">
+        <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+    </div>
+</div>
+
+<div class="card">
+    <h3><i class="fas fa-lightbulb"></i> Demo Credentials</h3>
+    <p>For testing purposes, you can use these demo accounts:</p>
+    <ul>
+        <li><strong>Student ID:</strong> DEMO001, <strong>Password:</strong> demo123</li>
+        <li><strong>Student ID:</strong> DEMO002, <strong>Password:</strong> demo123</li>
+    </ul>
+</div>
+{% endblock %}

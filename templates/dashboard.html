@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Smart Transportation System{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <h2><i class="fas fa-tachometer-alt"></i> Welcome, {{ current_user.name }}!</h2>
+    <a href="{{ url_for('logout') }}" class="btn btn-danger">
+        <i class="fas fa-sign-out-alt"></i> Logout
+    </a>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Daily Voting Section -->
+    <div class="card">
+        <h3><i class="fas fa-vote-yea"></i> Daily Bus Vote</h3>
+        <p>Let us know if you need the bus today</p>
+        
+        {% if today_vote %}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> 
+                You voted: <strong>{{ 'YES' if today_vote.needs_bus else 'NO' }}</strong> for bus today
+            </div>
+            <p><small>Voted at: {{ today_vote.voted_at.strftime('%I:%M %p') }}</small></p>
+        {% else %}
+            <form method="POST" action="{{ url_for('vote') }}">
+                <div class="vote-buttons">
+                    <button type="submit" name="needs_bus" value="yes" class="btn btn-success vote-btn">
+                        <i class="fas fa-bus"></i> YES, I need the bus
+                    </button>
+                    <button type="submit" name="needs_bus" value="no" class="btn btn-danger vote-btn">
+                        <i class="fas fa-times"></i> NO, I don't need the bus
+                    </button>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+
+    <!-- Emergency Section -->
+    <div class="card emergency-section {% if emergency_active %}emergency-active{% endif %}">
+        <h3><i class="fas fa-exclamation-triangle"></i> Emergency Service</h3>
+        
+        {% if emergency_active %}
+            <div class="alert alert-danger">
+                <i class="fas fa-clock"></i> Emergency window is active (7:00 AM - 7:30 AM)
+            </div>
+            <button onclick="requestEmergency()" class="btn btn-warning">
+                <i class="fas fa-bell"></i> Request Emergency Bus
+            </button>
+            <p><small>Click if you missed your regular bus</small></p>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Emergency window opens at 7:00 AM
+            </div>
+            <button class="btn btn-warning" disabled>
+                <i class="fas fa-clock"></i> Emergency Not Available
+            </button>
+        {% endif %}
+        
+        <div id="emergency-response" style="margin-top: 15px;"></div>
+    </div>
+
+    <!-- Stop Information -->
+    <div class="card">
+        <h3><i class="fas fa-map-marker-alt"></i> Your Bus Stop</h3>
+        <div class="stop-info">
+            <h4>{{ user_stop.name }}</h4>
+            <p><i class="fas fa-map"></i> {{ user_stop.address }}</p>
+            <p><i class="fas fa-globe"></i> Coordinates: {{ "%.4f"|format(user_stop.latitude) }}, {{ "%.4f"|format(user_stop.longitude) }}</p>
+        </div>
+    </div>
+
+    <!-- Today's Status -->
+    <div class="card">
+        <h3><i class="fas fa-calendar-day"></i> Today's Status</h3>
+        <div style="text-align: center;">
+            <div style="margin: 15px 0;">
+                <strong>Date:</strong> {{ now.strftime('%B %d, %Y') }}
+            </div>
+            <div style="margin: 15px 0;">
+                <strong>Current Time:</strong> {{ now.strftime('%I:%M %p') }}
+            </div>
+            <div style="margin: 15px 0;">
+                <strong>Your ID:</strong> {{ current_user.student_id }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Emergency History -->
+<div class="card">
+    <h3><i class="fas fa-history"></i> Recent Activity</h3>
+    <div style="text-align: center; color: #666;">
+        <i class="fas fa-info-circle"></i> 
+        Your voting history and emergency requests will appear here
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card">
+    <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
+        <a href="{{ url_for('admin_dashboard_secure') }}" class="btn btn-primary">
+            <i class="fas fa-chart-bar"></i> View All Routes
+        </a>
+        <button onclick="checkBusStatus()" class="btn btn-success">
+            <i class="fas fa-search"></i> Check Bus Status
+        </button>
+        <button onclick="getDirections()" class="btn btn-info">
+            <i class="fas fa-directions"></i> Get Directions
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function requestEmergency() {
+    if (confirm('Are you sure you want to request emergency bus service?')) {
+        fetch('{{ url_for("emergency_request") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const responseDiv = document.getElementById('emergency-response');
+            if (data.error) {
+                responseDiv.innerHTML = '<div class="alert alert-danger">' + data.error + '</div>';
+            } else {
+                responseDiv.innerHTML = 
+                    '<div class="alert alert-success">' +
+                    '<i class="fas fa-check-circle"></i> ' + data.message + '<br>' +
+                    '<strong>Nearby buses:</strong> ' + data.nearby_buses + '<br>' +
+                    '<strong>Estimated wait:</strong> ' + data.estimated_wait +
+                    '</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('emergency-response').innerHTML = 
+                '<div class="alert alert-danger">Error requesting emergency service</div>';
+        });
+    }
+}
+
+function checkBusStatus() {
+    alert('Bus status checking feature coming soon!');
+}
+
+function getDirections() {
+    var stopLat = parseFloat("{{ user_stop.latitude }}");
+    var stopLng = parseFloat("{{ user_stop.longitude }}");
+    var schoolLat = 12.9716;
+    var schoolLng = 77.5946;
+    
+    var url = 'https://www.google.com/maps/dir/' + stopLat + ',' + stopLng + '/' + schoolLat + ',' + schoolLng;
+    window.open(url, '_blank');
+}
+</script>
+{% endblock %}
