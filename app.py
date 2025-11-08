@@ -16,14 +16,32 @@ from admin_auth import admin_bp
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'smart-transport-hackfinity-2024'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///smart_transport.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'smart-transport-hackfinity-2024')
+
+# Configure database
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', f'sqlite:///{os.path.join(basedir, "instance/smart_transport.db")}')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Create database tables
+def create_tables():
+    with app.app_context():
+        # Create the instance directory if it doesn't exist
+        os.makedirs('instance', exist_ok=True)
+        # Create all database tables
+        db.create_all()
+        print("Database tables created successfully")
+
+# Register blueprints
+app.register_blueprint(admin_bp)
+
+# Call the function to create tables when the application starts
+create_tables()
 
 # Database Models
 class Student(UserMixin, db.Model):
