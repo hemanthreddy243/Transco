@@ -4,10 +4,9 @@ Admin authentication and data import system
 Provides secure admin login and data management
 """
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from app import db, app
 from datetime import datetime
 import csv
 import io
@@ -64,14 +63,14 @@ def admin_dashboard():
     today = datetime.now().date()
     
     # Get today's votes
-    votes = db.session.query(DailyVote, Student, BusStop).join(
+    votes = current_app.db.session.query(DailyVote, Student, BusStop).join(
         Student, DailyVote.student_id == Student.id
     ).join(
         BusStop, Student.stop_id == BusStop.id
     ).filter(DailyVote.vote_date == today).all()
     
     # Get emergency requests
-    emergency_requests = db.session.query(EmergencyRequest, Student, BusStop).join(
+    emergency_requests = current_app.db.session.query(EmergencyRequest, Student, BusStop).join(
         Student, EmergencyRequest.student_id == Student.id
     ).join(
         BusStop, EmergencyRequest.stop_id == BusStop.id
@@ -122,12 +121,12 @@ def import_students():
                 for row in csv_reader:
                     try:
                         # Check if student already exists
-                        existing = Student.query.filter_by(student_id=row['student_id']).first()
+                        existing = current_app.db.session.query(Student).filter_by(student_id=row['student_id']).first()
                         if existing:
                             continue
                         
                         # Get bus stop ID
-                        stop = BusStop.query.filter_by(name=row['stop_name']).first()
+                        stop = current_app.db.session.query(BusStop).filter_by(name=row['stop_name']).first()
                         if not stop:
                             flash(f"Bus stop '{row['stop_name']}' not found")
                             continue
@@ -139,13 +138,13 @@ def import_students():
                             password_hash=generate_password_hash(row['password']),
                             stop_id=stop.id
                         )
-                        db.session.add(student)
+                        current_app.db.session.add(student)
                         imported_count += 1
                     
                     except Exception as e:
                         flash(f'Error importing row: {str(e)}')
                 
-                db.session.commit()
+                current_app.db.session.commit()
                 flash(f'Successfully imported {imported_count} students!')
                 
             except Exception as e:
@@ -180,7 +179,7 @@ def import_stops():
                 for row in csv_reader:
                     try:
                         # Check if stop already exists
-                        existing = BusStop.query.filter_by(name=row['name']).first()
+                        existing = current_app.db.session.query(BusStop).filter_by(name=row['name']).first()
                         if existing:
                             continue
                         
@@ -190,13 +189,13 @@ def import_stops():
                             longitude=float(row['longitude']),
                             address=row.get('address', '')
                         )
-                        db.session.add(stop)
+                        current_app.db.session.add(stop)
                         imported_count += 1
                     
                     except Exception as e:
                         flash(f'Error importing row: {str(e)}')
                 
-                db.session.commit()
+                current_app.db.session.commit()
                 flash(f'Successfully imported {imported_count} bus stops!')
                 
             except Exception as e:
@@ -205,6 +204,3 @@ def import_stops():
             flash('Please upload a CSV file')
     
     return render_template('import_stops.html')
-
-# Register blueprint
-app.register_blueprint(admin_bp)

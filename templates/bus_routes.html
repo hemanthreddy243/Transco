@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Bus Routes - Smart Transportation System{% endblock %}
+
+{% block content %}
+<div class="nav">
+    <h2><i class="fas fa-route"></i> Bus Routes</h2>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="routes-container">
+    <!-- Route Overview -->
+    <div class="card">
+        <h3><i class="fas fa-map"></i> Today's Bus Routes</h3>
+        <p>View all active bus routes and their schedules for today</p>
+        
+        {% if routes %}
+            <div class="routes-summary">
+                <div class="summary-item">
+                    <i class="fas fa-bus"></i>
+                    <span>{{ routes|length }} Active Routes</span>
+                </div>
+                <div class="summary-item">
+                    <i class="fas fa-users"></i>
+                    <span>{{ total_students }} Students</span>
+                </div>
+                <div class="summary-item">
+                    <i class="fas fa-clock"></i>
+                    <span>Updated: {{ last_updated.strftime('%I:%M %p') }}</span>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No routes available yet. Routes are generated based on daily votes.
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Individual Routes -->
+    {% if routes %}
+        {% for route in routes %}
+        <div class="card route-card">
+            <div class="route-header">
+                <div class="route-info">
+                    <h4><i class="fas fa-bus"></i> Route {{ route.bus_number }}</h4>
+                    <p>Driver: {{ route.driver_name }}</p>
+                </div>
+                <div class="route-status">
+                    <span class="status-badge {{ 'active' if route.is_active else 'inactive' }}">
+                        {{ 'Active' if route.is_active else 'Inactive' }}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="route-details">
+                <div class="schedule-info">
+                    <div class="schedule-item">
+                        <i class="fas fa-play"></i>
+                        <span>Departure: {{ route.departure_time.strftime('%I:%M %p') }}</span>
+                    </div>
+                    <div class="schedule-item">
+                        <i class="fas fa-stop"></i>
+                        <span>Arrival: {{ route.arrival_time.strftime('%I:%M %p') }}</span>
+                    </div>
+                    <div class="schedule-item">
+                        <i class="fas fa-users"></i>
+                        <span>Capacity: {{ route.assigned_students|length }}/{{ route.capacity }}</span>
+                    </div>
+                </div>
+                
+                <!-- Route Stops -->
+                <div class="route-stops">
+                    <h5><i class="fas fa-map-marker-alt"></i> Bus Stops</h5>
+                    <div class="stops-timeline">
+                        {% for stop_assignment in route.stop_assignments %}
+                        <div class="stop-item">
+                            <div class="stop-marker">
+                                <i class="fas fa-circle"></i>
+                            </div>
+                            <div class="stop-content">
+                                <div class="stop-name">{{ stop_assignment.stop.name }}</div>
+                                <div class="stop-details">
+                                    <span class="stop-time">{{ stop_assignment.estimated_time.strftime('%I:%M %p') if stop_assignment.estimated_time else 'TBD' }}</span>
+                                    <span class="stop-students">{{ stop_assignment.students|length }} students</span>
+                                </div>
+                                <div class="stop-address">{{ stop_assignment.stop.address }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Students on this route -->
+                <div class="route-students">
+                    <h5><i class="fas fa-users"></i> Students on this Route</h5>
+                    <div class="students-grid">
+                        {% for student in route.assigned_students %}
+                        <div class="student-chip">
+                            <i class="fas fa-user"></i>
+                            {{ student.name }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- No Routes Message -->
+    {% if not routes %}
+    <div class="card">
+        <div class="no-routes">
+            <i class="fas fa-route"></i>
+            <h3>No Routes Available</h3>
+            <p>Bus routes are generated based on daily student votes. Please check back after voting hours or contact your administrator.</p>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                <i class="fas fa-vote-yea"></i> Go Vote Now
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Live Tracking Section -->
+<div class="card">
+    <h3><i class="fas fa-satellite-dish"></i> Live Bus Tracking</h3>
+    <p>Track buses in real-time (when available)</p>
+    
+    <div id="live-tracking" class="live-tracking-container">
+        <div class="tracking-placeholder">
+            <i class="fas fa-map-marked-alt"></i>
+            <p>Live tracking will be available when buses are active</p>
+            <button onclick="refreshLiveTracking()" class="btn btn-outline-primary">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshLiveTracking() {
+    const container = document.getElementById('live-tracking');
+    container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading live tracking...</div>';
+    
+    // Simulate live tracking data
+    setTimeout(() => {
+        container.innerHTML = `
+            <div class="tracking-grid">
+                <div class="tracking-item">
+                    <div class="tracking-header">
+                        <i class="fas fa-bus"></i>
+                        <span>Bus 001</span>
+                        <span class="status-badge active">Moving</span>
+                    </div>
+                    <div class="tracking-details">
+                        <div class="detail-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>Current: Main Street Stop</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>Speed: 25 km/h</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-clock"></i>
+                            <span>ETA: 8:15 AM</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }, 1500);
+}
+
+// Auto-refresh live tracking every 30 seconds
+setInterval(refreshLiveTracking, 30000);
+
+// Initial load
+document.addEventListener('DOMContentLoaded', function() {
+    refreshLiveTracking();
+});
+</script>
+{% endblock %}

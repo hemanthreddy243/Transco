@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Route Map - Smart School Transport</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Custom styling for Leaflet Routing Machine */
+        .leaflet-routing-container {
+            background-color: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .leaflet-routing-collapse-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        
+        .leaflet-routing-error {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #c62828;
+        }
+        
+        .route-controls {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .route-info {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .route-legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #666;
+        }
+        
+        .optimize-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .optimize-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+        }
+        
+        .optimize-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    {% include 'base.html' %}
+    
+    <div class="container">
+        <h1 class="text-center mb-4">Dynamic Route Optimization Map</h1>
+        
+        <!-- Route Controls -->
+        <div class="route-controls">
+            <h3>Route Controls</h3>
+            <button id="simulateVotesBtn" class="optimize-btn" onclick="simulateVotes()" style="background: linear-gradient(45deg, #2196F3, #1976D2);">
+                🗳️ Simulate Votes
+            </button>
+            <button id="optimizeBtn" class="optimize-btn" onclick="optimizeRoutes()">
+                🚀 Optimize Routes
+            </button>
+            <button id="refreshBtn" class="optimize-btn" onclick="refreshRoutes()">
+                🔄 Refresh Routes
+            </button>
+            <button id="clearBtn" class="optimize-btn" onclick="clearRoutes()" style="background: linear-gradient(45deg, #f44336, #d32f2f);">
+                🗑️ Clear Routes
+            </button>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="stats-grid" id="statsGrid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalBuses">0</div>
+                <div class="stat-label">Buses Used</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalStudents">0</div>
+                <div class="stat-label">Students Served</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalDistance">0</div>
+                <div class="stat-label">Total Distance (km)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgUtilization">0%</div>
+                <div class="stat-label">Avg Capacity Utilization</div>
+            </div>
+        </div>
+        
+        <!-- Map Container -->
+        <div id="map">
+            <div class="loading">🗺️ Loading map...</div>
+        </div>
+        
+        <!-- Route Legend -->
+        <div class="route-legend" id="routeLegend" style="display: none;">
+            <h4>Route Legend</h4>
+            <div id="legendItems"></div>
+        </div>
+        
+        <!-- Route Information -->
+        <div id="routeInfo" style="display: none;"></div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet Routing Machine JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        let map;
+        let routeLayers = {};
+        let stopMarkers = {};
+        let currentRoutes = null;
+        
+        // College location (Vignan Institute of Technology)
+        const collegeLocation = [17.4065, 78.4772];
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView(collegeLocation, 12);
+            
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add college marker
+            L.marker(collegeLocation, {
+                icon: L.divIcon({
+                    className: 'college-marker',
+                    html: '🏫',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                })
+            }).addTo(map)
+            .bindPopup('<b>Vignan Institute of Technology</b><br>College Center Point')
+            .openPopup();
+        }
+        
+        // Simulate votes for testing
+        async function simulateVotes() {
+            const btn = document.getElementById('simulateVotesBtn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Simulating...';
+            
+            try {
+                const response = await fetch('/api/simulate-votes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification(`✅ ${result.message}`, 'success');
+                    // Clear existing routes to force refresh
+                    clearRoutes();
+                    currentRoutes = null;
+                } else {
+                    showNotification(`❌ ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Failed to simulate votes: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🗳️ Simulate Votes';
+            }
+        }
+        
+        // Optimize routes
+        async function optimizeRoutes() {
+            const btn = document.getElementById('optimizeBtn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Optimizing...';
+            
+            try {
+                const response = await fetch('/api/optimize-routes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.routes && data.routes.length > 0) {
+                    currentRoutes = data;
+                    displayRoutes(data);
+                    updateStats(data);
+                    showLegend(data.routes);
+                    showNotification('Routes optimized successfully!', 'success');
+                } else {
+                    showNotification('No routes to optimize. No students need bus service today.', 'info');
+                }
+            } catch (error) {
+                console.error('Error optimizing routes:', error);
+                showNotification('Error optimizing routes. Please try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 Optimize Routes';
+            }
+        }
+        
+        // Display routes on map
+        function displayRoutes(data) {
+            clearRoutes();
+            
+            data.routes.forEach((route, index) => {
+                const routeColor = route.color;
+                const waypoints = [];
+                
+                // Add college as starting point
+                waypoints.push(L.latLng(collegeLocation[0], collegeLocation[1]));
+                
+                // Add stop coordinates
+                route.stops.forEach(stop => {
+                    waypoints.push(L.latLng(stop.latitude, stop.longitude));
+                    
+                    // Add stop marker
+                    const marker = L.marker([stop.latitude, stop.longitude], {
+                        icon: L.divIcon({
+                            className: 'stop-marker',
+                            html: `<div style="background-color: ${routeColor}; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${index + 1}</div>`,
+                            iconSize: [25, 25],
+                            iconAnchor: [12, 12]
+                        })
+                    }).addTo(map);
+                    
+                    marker.bindPopup(`
+                        <b>${stop.name}</b><br>
+                        Students: ${stop.student_count}<br>
+                        Address: ${stop.address}<br>
+                        Bus: ${route.bus_number}
+                    `);
+                    
+                    stopMarkers[stop.id] = marker;
+                });
+                
+                // Add college as ending point
+                waypoints.push(L.latLng(collegeLocation[0], collegeLocation[1]));
+                
+                // Create actual road route using Leaflet Routing Machine
+                const routingControl = L.Routing.control({
+                    waypoints: waypoints,
+                    routeWhileDragging: false,
+                    addWaypoints: false,
+                    createMarker: function() { return null; }, // Don't create default markers
+                    lineOptions: {
+                        styles: [{
+                            color: routeColor,
+                            weight: 4,
+                            opacity: 0.8
+                        }]
+                    },
+                    router: L.Routing.osrmv1({
+                        serviceUrl: 'https://router.project-osrm.org/route/v1/'
+                    })
+                }).addTo(map);
+                
+                // Store the routing control
+                routeLayers[route.bus_number] = routingControl;
+                
+                // Add route info popup on the route
+                routingControl.on('routesfound', function(e) {
+                    const routes = e.routes;
+                    const summary = routes[0].summary;
+                    
+                    // Create a popup for the route
+                    const routeCenter = waypoints[Math.floor(waypoints.length / 2)];
+                    const popup = L.popup()
+                        .setLatLng(routeCenter)
+                        .setContent(`
+                            <b>Route ${index + 1} - Bus ${route.bus_number}</b><br>
+                            Driver: ${route.driver_name}<br>
+                            Students: ${route.total_students}/${route.capacity}<br>
+                            Distance: ${(summary.totalDistance / 1000).toFixed(2)} km<br>
+                            Duration: ${Math.round(summary.totalTime / 60)} minutes<br>
+                            Utilization: ${route.capacity_utilization}%
+                        `)
+                        .addTo(map);
+                    
+                    // Store popup reference
+                    routeLayers[route.bus_number + '_popup'] = popup;
+                });
+            });
+            
+            // Fit map to show all routes
+            const allCoordinates = [];
+            data.routes.forEach(route => {
+                allCoordinates.push(collegeLocation);
+                route.stops.forEach(stop => {
+                    allCoordinates.push([stop.latitude, stop.longitude]);
+                });
+                allCoordinates.push(collegeLocation);
+            });
+            
+            if (allCoordinates.length > 0) {
+                map.fitBounds(allCoordinates, { padding: [20, 20] });
+            }
+        }
+        
+        // Update statistics
+        function updateStats(data) {
+            document.getElementById('totalBuses').textContent = data.total_buses_used;
+            document.getElementById('totalStudents').textContent = data.total_students_served;
+            document.getElementById('totalDistance').textContent = data.total_cost;
+            
+            const avgUtilization = data.routes.length > 0 ? 
+                Math.round(data.routes.reduce((sum, route) => sum + route.capacity_utilization, 0) / data.routes.length) : 0;
+            document.getElementById('avgUtilization').textContent = avgUtilization + '%';
+            
+            document.getElementById('statsGrid').style.display = 'grid';
+        }
+        
+        // Show route legend
+        function showLegend(routes) {
+            const legendItems = document.getElementById('legendItems');
+            legendItems.innerHTML = '';
+            
+            routes.forEach((route, index) => {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+                legendItem.innerHTML = `
+                    <div class="legend-color" style="background-color: ${route.color};"></div>
+                    <span>Bus ${route.bus_number} - ${route.driver_name} (${route.total_students}/${route.capacity} students)</span>
+                `;
+                legendItems.appendChild(legendItem);
+            });
+            
+            document.getElementById('routeLegend').style.display = 'block';
+        }
+        
+        // Clear existing routes
+        function clearRoutes() {
+            // Remove route layers (routing controls)
+            Object.values(routeLayers).forEach(layer => {
+                if (layer && layer.remove) {
+                    map.removeControl(layer);
+                }
+                if (layer && layer.removeFrom) {
+                    layer.removeFrom(map);
+                }
+            });
+            
+            // Remove stop markers
+            Object.values(stopMarkers).forEach(marker => {
+                map.removeLayer(marker);
+            });
+            
+            routeLayers = {};
+            stopMarkers = {};
+            
+            document.getElementById('statsGrid').style.display = 'none';
+            document.getElementById('routeLegend').style.display = 'none';
+            document.getElementById('routeInfo').style.display = 'none';
+        }
+        
+        // Refresh routes
+        function refreshRoutes() {
+            if (currentRoutes) {
+                displayRoutes(currentRoutes);
+                showNotification('Routes refreshed!', 'success');
+            } else {
+                showNotification('No routes to refresh. Please optimize routes first.', 'info');
+            }
+        }
+        
+        // Show notification
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 5px;
+                color: white;
+                font-weight: bold;
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            switch(type) {
+                case 'success':
+                    notification.style.backgroundColor = '#4CAF50';
+                    break;
+                case 'error':
+                    notification.style.backgroundColor = '#f44336';
+                    break;
+                case 'info':
+                    notification.style.backgroundColor = '#2196F3';
+                    break;
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // Initialize map when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+        });
+        
+        // Add CSS animation
+        const animationStyle = document.createElement('style');
+        animationStyle.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(animationStyle);
+    </script>
+</body>
+</html>
